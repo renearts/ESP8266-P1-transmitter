@@ -233,7 +233,10 @@ void CheckSerial(){
       client.publish("/test/P1",outputString);
       client.publish("/sensor/P1_meter/T1",T1);
       client.publish("/sensor/P1_meter/T2",T2);
+      client.publish("/sensor/P1_meter/T7",T7);
+      client.publish("/sensor/P1_meter/T8",T8);
       client.publish("/sensor/P1_meter/P1",P1);
+      client.publish("/sensor/P1_meter/P2",P2);
       client.publish("/sensor/P1_meter/G1",G1);
       
       if (count == 2) {
@@ -244,7 +247,6 @@ void CheckSerial(){
       }
             
       inputString = "";
- //     delay(1000);
    }
   
 }
