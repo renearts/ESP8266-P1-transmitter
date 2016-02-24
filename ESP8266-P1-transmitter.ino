@@ -51,8 +51,6 @@ WiFiClient client;
 DHT dht(2, DHT22, 20);
 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // Vars to store meter readings
 long mEVLT = 0; //Meter reading Electrics - consumption low tariff
 long mEVHT = 0; //Meter reading Electrics - consumption high tariff
@@ -278,7 +276,7 @@ void UpdateGas()
   //sends over the gas setting to domoticz
   if(prevGAS!=mGAS)
   {
-    if(send_data(String(mGAS),"esp-G1"))
+    if(send_data(String(mGAS),"mGAS"))
       prevGAS=mGAS;
   }
 }
@@ -289,12 +287,12 @@ void UpdateElectricity()
 //  sprintf(sValue, "%d;%d;%d;%d;%d;%d", mEVLT, mEVHT, mEOLT, mEOHT, mEAV, mEAT);
 //  SendToDomo(domoticzEneryIdx, 0, sValue);
   
-  send_data(String(mEVLT),"esp-G1");
-  send_data(String(mEVHT),"esp-G1");
-  send_data(String(mEOLT),"esp-G1");
-  send_data(String(mEOHT),"esp-G1");
-  send_data(String(mEAV),"esp-G1");
-  send_data(String(mEAT),"esp-G1");
+  send_data(String(mEVLT),"mEVLT");
+  send_data(String(mEVHT),"mEVHT");
+  send_data(String(mEOLT),"mEOLT");
+  send_data(String(mEOHT),"mEOHT");
+  send_data(String(mEAV),"mEAV");
+  send_data(String(mEAT),"mEAT");
 }
 
 
@@ -336,7 +334,7 @@ long getValue(char* buffer, int maxlen) {
 
   if (strncpy(res, buffer + s + 1, l)) {
     if (isNumber(res, l)) {
-      return (1000 * atof(res));
+      return (atof(res));
     }
   }
   return 0;
