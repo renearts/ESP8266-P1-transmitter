@@ -1,280 +1,499 @@
-
+#include <Time.h>
+#include <ESP8266mDNS.h>
+#include <DHT.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
-#include <PubSubClient.h>
-
-String apiKey = "yourapikey";
-const char* ssid = "yourWifiSSID";
-const char* password = "password";
-
-#define BUFFER_SIZE 100
-
-int messages_recvd = 0;
-
-MDNSResponder mdns;
-
-ESP8266WebServer server ( 80 );
-
-const char* TSP_server = "api.thingspeak.com";
-
-IPAddress mqttserver(127,0,0,1); // fill in your MQTT server
-
-WiFiClient wclient;
-PubSubClient client(wclient, mqttserver);
-
-char lastmessage_recvd[100];
-String lastmessage;
-
-char count = 0;
-int incomingByte = 0;
-int T1_pos;
-int T2_pos;
-int T7_pos;
-int T8_pos;
-int P1_pos;
-int P2_pos;
-int P3_pos;
-int G1_pos;
-String inputString;
-String T1;
-String T2;
-String T7;
-String T8;
-String P1;
-String P2;
-String P3;
-String G1;
-String outputString;
-String lastString;
-
-const int led = 13;
-
-void callback(const MQTT::Publish& pub) {
-  messages_recvd++;
-  Serial.print(pub.topic());
-  Serial.print(" => ");
-  if (pub.has_stream()) {
-    uint8_t buf[BUFFER_SIZE];
-    int read;
-    while (read = pub.payload_stream()->read(buf, BUFFER_SIZE)) {
-      Serial.write(buf, read);
-    }
-    pub.payload_stream()->stop();
-    Serial.println("");
-  } else
-    Serial.println(pub.payload_string());
-    
-    String message = "I received ";
-    message += messages_recvd;
-    message += " messages\n";
-  
-    lastmessage = pub.payload_string();    
-    lastmessage.toCharArray(lastmessage_recvd,pub.payload_len()+1);
-    
-//    snprintf("I received %d messages",messages_recvd)
-//    MQTT::Publish newpub("/test","I received %d messages",messages_recvd);
-//    MQTT::Publish newpub("outTopic", pub.payload(), pub.payload_len());
-    client.publish("/test",message);
-        
-}
-
-void handleRoot() {
-	digitalWrite ( led, 1 );
-	char temp[600];
-	int sec = millis() / 1000;
-	int min = sec / 60;
-	int hr = min / 60;
-
-	snprintf ( temp, 600,
-
-"<html>\
-  <head>\
-    <meta http-equiv='refresh' content='5'/>\
-    <title>ESP8266 Demo</title>\
-    <style>\
-      body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; }\
-    </style>\
-  </head>\
-  <body>\
-    <h1>Hello from ESP8266!</h1>\
-    <p>Uptime: %02d:%02d:%02d</p>\
-    <p><h2>Last received MQTT message: </h2></p>\
-    <p>%s<p>\
-    <p><h2>Last received meter values:</h2></p>\
-    <p>T1: %d</p>\
-    <p>T2: %d</p>\
-    <p>P1: %d</p>\
-    <p>P2: %d</p>\
-    <p>G1: %d</p>\
-  </body>\
-</html>",
-
-		hr, min % 60, sec % 60, lastmessage_recvd, T1.toInt(), T2.toInt(), (P1.toInt())*1000, P2.toInt(), G1.toInt()
-	);
-	server.send ( 200, "text/html", temp );
-	digitalWrite ( led, 0 );
-}
-
-void handleNotFound() {
-	digitalWrite ( led, 1 );
-	String message = "File Not Found\n\n";
-	message += "URI: ";
-	message += server.uri();
-	message += "\nMethod: ";
-	message += ( server.method() == HTTP_GET ) ? "GET" : "POST";
-	message += "\nArguments: ";
-	message += server.args();
-	message += "\n";
-
-	for ( uint8_t i = 0; i < server.args(); i++ ) {
-		message += " " + server.argName ( i ) + ": " + server.arg ( i ) + "\n";
-	}
-
-	server.send ( 404, "text/plain", message );
-	digitalWrite ( led, 0 );
-}
-
-void setup ( void ) {
-	pinMode ( led, OUTPUT );
-	digitalWrite ( led, 0 );
-	Serial.begin ( 115200 );
-	WiFi.begin ( ssid, password );
-	Serial.println ( "" );
-
-	// Wait for connection
-	while ( WiFi.status() != WL_CONNECTED ) {
-		delay ( 500 );
-		Serial.print ( "." );
-	}
-
-	Serial.println ( "" );
-	Serial.print ( "Connected to " );
-	Serial.println ( ssid );
-	Serial.print ( "IP address: " );
-	Serial.println ( WiFi.localIP() );
-
-	if ( mdns.begin ( "esp8266", WiFi.localIP() ) ) {
-		Serial.println ( "MDNS responder started" );
-	}
-
-  client.set_callback(callback);
-  
-	server.on ( "/", handleRoot );
-	server.on ( "/inline", []() {
-		server.send ( 200, "text/plain", "this works as well" );
-	} );
-	server.onNotFound ( handleNotFound );
-	server.begin();
-	Serial.println ( "HTTP server started" );
-}
-
-void loop ( void ) {
-	mdns.update();
-	server.handleClient();
-  
-  if (WiFi.status() == WL_CONNECTED) {
-    if (!client.connected()) {
-      if (client.connect("arduinoClient")) {
-        // subscribe to test1 topic on MQTT. This 
-        client.subscribe("/test1");
-      }
-    }
-
-    if (client.connected()) {
-      CheckSerial();      
-      client.loop();    
-    }
-  }
-}
-
-void CheckSerial(){
-  while (Serial.available() > 0) {
-    
-    incomingByte = Serial.read();    
-    char inChar = (char)incomingByte;
-    inputString += inChar; 
-   }
-
-
-   //If output from Smart meter is long enough, process it. Length needs to be checked individually just in case
-   if (inputString.endsWith("!")) {
-//      Serial.println(inputString);
-      lastString = inputString;
-
-      //Publish entire unparsed string to MQTT for external parsing
-      client.publish("/test/P1_string",inputString);
-
-      // Extract substings/values
-      T1_pos = inputString.indexOf("1-0:1.8.1", 0);
-      T1 = inputString.substring(T1_pos + 10, T1_pos + 20);
+#include <Base64.h>
+#include <EEPROM.h>
+#include "CRC16.h"
  
-      T2_pos = inputString.indexOf("1-0:1.8.2", T1_pos + 1);
-      T2 = inputString.substring(T2_pos + 10, T2_pos + 20);
-      
-      T7_pos = inputString.indexOf("1-0:2.8.1", T1_pos + 1);
-      T7 = inputString.substring(T7_pos + 10, T7_pos + 20);
-      
-      T8_pos = inputString.indexOf("1-0:2.8.2", T7_pos + 1);
-      T8 = inputString.substring(T8_pos + 10, T8_pos + 20);
-      
-      P1_pos = inputString.indexOf("1-0:1.7.0", T8_pos + 1);
-      P1 = inputString.substring(P1_pos + 10, P1_pos + 16);
-      
-      P2_pos = inputString.indexOf("1-0:2.7.0", P1_pos + 1);
-      P2 = inputString.substring(P2_pos + 10, P2_pos + 16);
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////        !!PLEASE CHANGE THESE!!
+String ssid    = "WiFi SSID";
+String password = "WiFi Password";
 
-      G1_pos = inputString.indexOf("0-1:24.2.1", P2_pos + 1);
-      G1 = inputString.substring(G1_pos + 26, G1_pos + 35);
+String espName    = "esp01";
 
-      // generate outputring
-      outputString = "{T1:" + T1 + ",T2:" + T2 + ",T7:" + T7 + ",T8:" + T8 + ",P1:" + P1 + ",P2:" + P2  + ",G1:" + G1 + "}";
-      client.publish("/test/P1",outputString);
-      client.publish("/sensor/P1_meter/T1",T1);
-      client.publish("/sensor/P1_meter/T2",T2);
-      client.publish("/sensor/P1_meter/T7",T7);
-      client.publish("/sensor/P1_meter/T8",T8);
-      client.publish("/sensor/P1_meter/P1",P1);
-      client.publish("/sensor/P1_meter/P2",P2);
-      client.publish("/sensor/P1_meter/G1",G1);
-      
-      if (count == 2) {
-        count = 0;
-        SendToThingSpeak();
-      } else {
-        count++;
-      }
-            
-      inputString = "";
-   }
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////        NETWORK
+ESP8266WebServer  server(80);
+MDNSResponder   mdns;
+
+const char* APssid = "ESPap";
+const char* APpassword = "123456789";
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////         GLOBAL VARIABLES
+long    lastInterval  = 0;
+const int httpPort    = 80;
+float   temperature   = 0.0;
+float   humidity    = 0.0;
+
+String deviceType   = "DHT22";
+long sendInterval   = 10000; //in millis
+
+String Username     = "sensors";
+String Password     = "iamasensor";
+
+char authVal[40];  
+char authValEncoded[40];
+
+String host   = "192.168.0.100";
+
+String ClientIP;
+// send data
+WiFiClient client;
+
+
+//uint8_t DHTPIN = 2;  //data pin, GPIO2
+//uint8_t DHTTYPE = DHT22;
+
+DHT dht(2, DHT22, 20);
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Vars to store meter readings
+long mEVLT = 0; //Meter reading Electrics - consumption low tariff
+long mEVHT = 0; //Meter reading Electrics - consumption high tariff
+long mEOLT = 0; //Meter reading Electrics - return low tariff
+long mEOHT = 0; //Meter reading Electrics - return high tariff
+long mEAV = 0;  //Meter reading Electrics - Actual consumption
+long mEAT = 0;  //Meter reading Electrics - Actual return
+long mGAS = 0;    //Meter reading Gas
+long prevGAS = 0;
+
+
+#define MAXLINELENGTH 64 // longest normal line is 47 char (+3 for \r\n\0)
+char telegram[MAXLINELENGTH];
+
+//#define SERIAL_RX     D5  // pin for SoftwareSerial RX
+//SoftwareSerial mySerial(SERIAL_RX, -1, true, MAXLINELENGTH); // (RX, TX. inverted, buffer)
+
+unsigned int currentCRC=0;
+const bool outputOnSerial = true;
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////         HTML SNIPPLETS
+String header       =  "<html lang='en'><head><title>ESP8266 Pimatic Client</title><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><link rel='stylesheet' href='http://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css'><script src='https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js'></script><script src='http://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js'></script></head><body>";
+String navbar       =  "<nav class='navbar navbar-default'><div class='container-fluid'><div class='navbar-header'><a class='navbar-brand' href='/'>ESP8266 Pimatic Client</a></div><div><ul class='nav navbar-nav'><li class='active'><a href='/'><span class='glyphicon glyphicon-dashboard'></span> Status</a></li><li class='dropdown'><a class='dropdown-toggle' data-toggle='dropdown' href='#'><span class='glyphicon glyphicon-cog'></span> Configure<span class='caret'></span></a><ul class='dropdown-menu'><li><a href='/cliconf'>Client</a></li><li><a href='/serconf'>Server</a></li></ul></li></ul></div></div></nav>  "; 
+String navbarNonActive    = "<nav class='navbar navbar-default'><div class='container-fluid'><div class='navbar-header'><a class='navbar-brand' href='/'>ESP8266 Pimatic Client</a></div><div><ul class='nav navbar-nav'><li><a href='/'><span class='glyphicon glyphicon-dashboard'></span> Status</a></li><li class='dropdown'><a class='dropdown-toggle' data-toggle='dropdown' href='#'><span class='glyphicon glyphicon-cog'></span> Configure<span class='caret'></span></a><ul class='dropdown-menu'><li><a href='/cliconf'>Client</a></li><li><a href='/serconf'>Server</a></li></ul></li></ul></div></div></nav>  ";
+String containerStart   =  "<div class='container'><div class='row'>";
+String containerEnd     =  "<div class='clearfix visible-lg'></div></div></div>";
+String siteEnd        =  "</body></html>";
   
+String panelHeaderName    =  "<div class='col-md-4'><div class='page-header'><h1>";
+String panelHeaderEnd   =  "</h1></div>";
+String panelEnd       =  "</div>";
+  
+String panelBodySymbol    =  "<div class='panel panel-default'><div class='panel-body'><span class='glyphicon glyphicon-";
+String panelBodyName    =  "'></span> ";
+String panelBodyValue   =  "<span class='pull-right'>";
+String panelBodyEnd     =  "</span></div></div>";
+
+String inputBodyStart   =  "<form action='' method='POST'><div class='panel panel-default'><div class='panel-body'>";
+String inputBodyName    =  "<div class='form-group'><div class='input-group'><span class='input-group-addon' id='basic-addon1'>";
+String inputBodyPOST    =  "</span><input type='text' name='";
+String inputBodyClose   =  "' class='form-control' aria-describedby='basic-addon1'></div></div>";
+String inputBodyEnd     =  "</div><div class='panel-footer clearfix'><div class='pull-right'><button type='submit' class='btn btn-default'>Send</button></div></div></div></form>";
+
+
+//String landingNav     = "<nav class='navbar navbar-default'> <div class='container-fluid'> <div class='navbar-header'> <a class='navbar-brand' href='/'>ESP8266 Pimatic Client</a> </div></div></nav><br><br><br>";
+//String landingStartPartA  = "<div class='container'> <div class='row' > <div class='col-md-offset-3 col-md-6'> <div class='panel panel-default'> <div class='panel-heading'> Please login to your WiFi Network </div><div class='panel-body'> <form method='post' action=''> <div class='form-group'><div class='input-group'><span class='input-group-addon' id='basic-addon1'>Wifi Name </span><input type='text' class='form-control' placeholder='Enter SSID' aria-describedby='basic-addon1' name='wifiname'></div></div>";
+//String landingStartPartB    =   "<div class='form-group'><div class='input-group'><span class='input-group-addon' id='basic-addon1'>WiFi Pass </span><input type='password' class='form-control' placeholder='Password' aria-describedby='basic-addon1' name='wifipass'></div></div><div class='form-group'><div class='input-group'><span class='input-group-addon' id='basic-addon1'>Device Name ";
+//String landingStartPartC      =    "</span><input type='text' class='form-control' placeholder='Name your device e.g. kitchen' aria-describedby='basic-addon1' name='devicename'></div></div><a class='btn btn-primary' data-toggle='collapse' href='#collapseExample' aria-expanded='false' aria-controls='collapseExample'> Available Networks </a> <div class='pull-right'> <button type='submit' class='btn btn-default'>Send</button> </div></form> <div class='collapse' id='collapseExample'> <div class='well'>";
+//String landingEnd     = "</div></div></div></div></div></div></body></html>";
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////         ROOT 
+void handle_root() {
+
+  Serial.println(server.args());
+  
+  // get IP
+  IPAddress ip = WiFi.localIP();
+  ClientIP = String(ip[0]) + '.' + String(ip[1]) + '.' + String(ip[2]) + '.' + String(ip[3]);
+  delay(500);
+  
+  String title1     = panelHeaderName + String("Sensor Data") + panelHeaderEnd;
+  String Humidity   = panelBodySymbol + String("tint") + panelBodyName + String("Humidity") + panelBodyValue + humidity + String("%") + panelBodyEnd;
+  String Temperature    = panelBodySymbol + String("fire") + panelBodyName + String("Temperature") + panelBodyValue + temperature + String("°C") + panelBodyEnd + panelEnd;
+  
+  String title2     = panelHeaderName + String("Client Settings") + panelHeaderEnd;
+  String IPAddClient    = panelBodySymbol + String("globe") + panelBodyName + String("IP Address") + panelBodyValue + ClientIP + panelBodyEnd;
+  String DeviceType   = panelBodySymbol + String("scale") + panelBodyName + String("Device Type") + panelBodyValue + deviceType + panelBodyEnd;
+  String ClientName   = panelBodySymbol + String("tag") + panelBodyName + String("Client Name") + panelBodyValue + espName + panelBodyEnd;
+  String Interval   = panelBodySymbol + String("hourglass") + panelBodyName + String("Interval") + panelBodyValue + sendInterval + String(" millis") + panelBodyEnd;
+  String Uptime     = panelBodySymbol + String("time") + panelBodyName + String("Uptime") + panelBodyValue + hour() + String(" h ") + minute() + String(" min ") + second() + String(" sec") + panelBodyEnd + panelEnd;
+  
+  String title3     = panelHeaderName + String("Server Settings") + panelHeaderEnd;
+  String IPAddServ    = panelBodySymbol + String("globe") + panelBodyName + String("IP Address") + panelBodyValue + host + panelBodyEnd;
+  String User     = panelBodySymbol + String("user") + panelBodyName + String("Username") + panelBodyValue + Username + panelBodyEnd + panelEnd;
+  
+  
+  //String data = title1 + Humidity + Temperature + title2 + IPAddClient + DeviceType + ClientName + Interval + Uptime + title3 + IPAddServ + User;
+  //server.send ( 200, "text/html", header + navbar + containerStart + data + containerEnd + siteEnd );
+   server.send ( 200, "text/html", header + navbar + containerStart + title1 + Humidity + Temperature + title2 + IPAddClient + DeviceType + ClientName + Interval + Uptime + title3 + IPAddServ + User + containerEnd + siteEnd);
 }
 
-void SendToThingSpeak() {
-  if (wclient.connect(TSP_server,80)) {  //   "184.106.153.149" or api.thingspeak.com
-    String postStr = apiKey;
-         postStr +="&field1=";
-         postStr += T1;
-         postStr +="&field2=";
-         postStr += T2;
-         postStr +="&field3=";
-         postStr += P1;
-         postStr +="&field4=";
-         postStr += G1;
-         postStr += "\r\n\r\n";
-    
-    wclient.print("POST /update HTTP/1.1\n");
-    wclient.print("Host: api.thingspeak.com\n");
-    wclient.print("Connection: close\n");
-    wclient.print("X-THINGSPEAKAPIKEY: "+apiKey+"\n");
-    wclient.print("Content-Type: application/x-www-form-urlencoded\n");
-    wclient.print("Content-Length: ");
-    wclient.print(postStr.length());
-    wclient.print("\n\n");
-    wclient.print(postStr);
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////         CONFIG - Client
+void handle_cliconf() {
+
+  String payload=server.arg("name");
+  if (payload.length() > 0 ) {
+    espName = payload;
   }
-  wclient.stop();
+  Serial.println(payload);
+
+  payload=server.arg("type");
+  if (payload.length() > 0 ) {
+    deviceType = payload;
+  }
+  Serial.println(payload);
+
+  payload=server.arg("interval");
+  if (payload.length() > 0 ) {
+    sendInterval = payload.toInt();
+  }
+  Serial.println(payload);
+  
+  String title1 = panelHeaderName + String("Client Configuration") + panelHeaderEnd; 
+  
+  String data = title1 + inputBodyStart + inputBodyName + String("Name") + inputBodyPOST + String("name") + inputBodyClose + inputBodyName + String("Device Type") + inputBodyPOST + String("type") + inputBodyClose + inputBodyName + String("Interval in seconds") + inputBodyPOST + String("interval") + inputBodyClose + inputBodyEnd;
+  server.send ( 200, "text/html", header + navbarNonActive + containerStart + data + containerEnd + siteEnd );
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////         CONFIG - Server
+void handle_serconf() {
+  
+  String payload=server.arg("server");
+  if (payload.length() > 0 ) {
+    host = payload;
+  }
+  Serial.println(payload);
+  
+  payload=server.arg("user");
+  if (payload.length() > 0 ) {
+    Username = payload;
+  }
+  Serial.println(payload);
+
+  payload=server.arg("password");
+  if (payload.length() > 0 ) {
+    Password = payload;
+  }
+  Serial.println(payload);
+  
+  String title1 = panelHeaderName + String("Server Configuration") + panelHeaderEnd;
+  
+  String data = title1 + inputBodyStart + inputBodyName + String("Pimatic Server") + inputBodyPOST + String("server")  + inputBodyClose + inputBodyName + String("Username") + inputBodyPOST + String("user") + inputBodyClose + inputBodyName + String("Password") + inputBodyPOST + String("password") + inputBodyClose + inputBodyEnd;
+  
+  server.send ( 200, "text/html", header + navbarNonActive + containerStart + data + containerEnd + siteEnd);
+  
   
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////         LANDING
+/*
+void landing() {
+  
+  String payload=server.arg("wifiname");
+  if (payload.length() > 0 ) {
+    ssid = payload;
+  }
+  Serial.println(payload);
+  payload=server.arg("wifipass");
+  if (payload.length() > 0 ) {
+    password = payload;
+  }
+  Serial.println(payload);
+  
+  payload=server.arg("devicename");
+  if (payload.length() > 0 ) {
+    espName = payload;
+  }
+  Serial.println(payload);
+  
+  String landing = header + landingNav + landingStartPartA + landingStartPartB + landingStartPartC + landingEnd;
+  server.send ( 200, "text/html", landing);
+}
+*/
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////         SEND DATA
+bool send_data(String data, String sensorname) {
+  
+  String yourdata;
+    
+  char host_char_array[host.length()+1];
+  host.toCharArray(host_char_array,host.length()+1);
+  
+  if (!client.connect(host_char_array, httpPort)) {
+    Serial.println("connection failed");
+    return 0;
+  }
+  
+  // calculate Base64Login
+  memset(authVal,0,40);
+  (Username + String(":") + Password).toCharArray(authVal, 40);
+  memset(authValEncoded,0,40);
+  base64_encode(authValEncoded, authVal, (Username + String(":") + Password).length());
+  
+//  char base64login[40];
+  
+//  (Username + String(":") + Password).toCharArray(base64login, 40);
+  
+  //Send Humidity
+  yourdata = "{\"type\": \"value\", \"valueOrExpression\": \"" + String(data) + "\"}";
+    
+  client.print("PATCH /api/variables/");
+  client.print(sensorname);
+  client.print(" HTTP/1.1\r\n");
+  client.print("Authorization: Basic ");
+  client.print(authValEncoded);
+  client.print("\r\n");
+  client.print("Host: " + host +"\r\n");
+  client.print("Content-Type:application/json\r\n");
+  client.print("Content-Length: ");
+  client.print(yourdata.length());
+  client.print("\r\n\r\n");
+  client.print(yourdata);
+    
+  delay(250);  
+  while (client.available()) {
+    String line = client.readStringUntil('\r');
+  }
+  return 1;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////         AP
+void setupAP(void) {
+  delay(100);
+  WiFi.softAP(APssid,APpassword,6);
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
+
+void UpdateGas()
+{
+  //sends over the gas setting to domoticz
+  if(prevGAS!=mGAS)
+  {
+    if(send_data(String(mGAS),"esp-G1"))
+      prevGAS=mGAS;
+  }
+}
+
+void UpdateElectricity()
+{
+//  char sValue[255];
+//  sprintf(sValue, "%d;%d;%d;%d;%d;%d", mEVLT, mEVHT, mEOLT, mEOHT, mEAV, mEAT);
+//  SendToDomo(domoticzEneryIdx, 0, sValue);
+  
+  send_data(String(mEVLT),"esp-G1");
+  send_data(String(mEVHT),"esp-G1");
+  send_data(String(mEOLT),"esp-G1");
+  send_data(String(mEOHT),"esp-G1");
+  send_data(String(mEAV),"esp-G1");
+  send_data(String(mEAT),"esp-G1");
+}
+
+
+bool isNumber(char* res, int len) {
+  for (int i = 0; i < len; i++) {
+    if (((res[i] < '0') || (res[i] > '9'))  && (res[i] != '.' && res[i] != 0)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+int FindCharInArrayRev(char array[], char c, int len) {
+  for (int i = len - 1; i >= 0; i--) {
+    if (array[i] == c) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+long getValidVal(long valNew, long valOld, long maxDiffer)
+{
+  //check if the incoming value is valid
+      if(valOld > 0 && ((valNew - valOld > maxDiffer) && (valOld - valNew > maxDiffer)))
+        return valOld;
+      return valNew;
+}
+
+long getValue(char* buffer, int maxlen) {
+  int s = FindCharInArrayRev(buffer, '(', maxlen - 2);
+  if (s < 8) return 0;
+  if (s > 32) s = 32;
+  int l = FindCharInArrayRev(buffer, '*', maxlen - 2) - s - 1;
+  if (l < 4) return 0;
+  if (l > 12) return 0;
+  char res[16];
+  memset(res, 0, sizeof(res));
+
+  if (strncpy(res, buffer + s + 1, l)) {
+    if (isNumber(res, l)) {
+      return (1000 * atof(res));
+    }
+  }
+  return 0;
+}
+
+bool decodeTelegram(int len) {
+  //need to check for start
+  int startChar = FindCharInArrayRev(telegram, '/', len);
+  int endChar = FindCharInArrayRev(telegram, '!', len);
+  bool validCRCFound = false;
+  if(startChar>=0)
+  {
+    //start found. Reset CRC calculation
+    currentCRC=CRC16(0x0000,(unsigned char *) telegram+startChar, len-startChar);
+    if(outputOnSerial)
+    {
+      for(int cnt=startChar; cnt<len-startChar;cnt++)
+        Serial.print(telegram[cnt]);
+    }    
+    //Serial.println("Start found!");
+    
+  }
+  else if(endChar>=0)
+  {
+    //add to crc calc 
+    currentCRC=CRC16(currentCRC,(unsigned char*)telegram+endChar, 1);
+    char messageCRC[4];
+    strncpy(messageCRC, telegram + endChar + 1, 4);
+    if(outputOnSerial)
+    {
+      for(int cnt=0; cnt<len;cnt++)
+        Serial.print(telegram[cnt]);
+    }    
+    validCRCFound = (strtol(messageCRC, NULL, 16) == currentCRC);
+    if(validCRCFound)
+      Serial.println("\nVALID CRC FOUND!"); 
+    else
+      Serial.println("\n===INVALID CRC FOUND!===");
+    currentCRC = 0;
+  }
+  else
+  {
+    currentCRC=CRC16(currentCRC, (unsigned char*)telegram, len);
+    if(outputOnSerial)
+    {
+      for(int cnt=0; cnt<len;cnt++)
+        Serial.print(telegram[cnt]);
+    }
+  }
+
+  long val =0;
+  long val2=0;
+  // 1-0:1.8.1(000992.992*kWh)
+  // 1-0:1.8.1 = Elektra verbruik laag tarief (DSMR v4.0)
+  if (strncmp(telegram, "1-0:1.8.1", strlen("1-0:1.8.1")) == 0) 
+    mEVLT =  getValue(telegram, len);
+  
+
+  // 1-0:1.8.2(000560.157*kWh)
+  // 1-0:1.8.2 = Elektra verbruik hoog tarief (DSMR v4.0)
+  if (strncmp(telegram, "1-0:1.8.2", strlen("1-0:1.8.2")) == 0) 
+    mEVHT = getValue(telegram, len);
+    
+
+  // 1-0:2.8.1(000348.890*kWh)
+  // 1-0:2.8.1 = Elektra opbrengst laag tarief (DSMR v4.0)
+  if (strncmp(telegram, "1-0:2.8.1", strlen("1-0:2.8.1")) == 0) 
+    mEOLT = getValue(telegram, len);
+   
+
+  // 1-0:2.8.2(000859.885*kWh)
+  // 1-0:2.8.2 = Elektra opbrengst hoog tarief (DSMR v4.0)
+  if (strncmp(telegram, "1-0:2.8.2", strlen("1-0:2.8.2")) == 0) 
+    mEOHT = getValue(telegram, len);
+    
+
+  // 1-0:1.7.0(00.424*kW) Actueel verbruik
+  // 1-0:2.7.0(00.000*kW) Actuele teruglevering
+  // 1-0:1.7.x = Electricity consumption actual usage (DSMR v4.0)
+  if (strncmp(telegram, "1-0:1.7.0", strlen("1-0:1.7.0")) == 0) 
+    mEAV = getValue(telegram, len);
+    
+  if (strncmp(telegram, "1-0:2.7.0", strlen("1-0:2.7.0")) == 0)
+    mEAT = getValue(telegram, len);
+   
+
+  // 0-1:24.2.1(150531200000S)(00811.923*m3)
+  // 0-1:24.2.1 = Gas (DSMR v4.0) on Kaifa MA105 meter
+  if (strncmp(telegram, "0-1:24.2.1", strlen("0-1:24.2.1")) == 0) 
+    mGAS = getValue(telegram, len);
+
+  return validCRCFound;
+}
+
+void readTelegram() {
+  if (Serial.available()) {
+    memset(telegram, 0, sizeof(telegram));
+    while (Serial.available()) {
+      int len = Serial.readBytesUntil('\n', telegram, MAXLINELENGTH);
+      telegram[len] = '\n';
+      telegram[len+1] = 0;
+      yield();
+      if(decodeTelegram(len+1))
+      {
+         UpdateElectricity();
+         UpdateGas();
+      }
+    } 
+  }
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////         SETUP 
+void setup(void)
+{
+  Serial.begin(115200);
+ 
+   
+      WiFi.begin(ssid.c_str(), password.c_str());
+      while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+      } 
+      Serial.println("");
+      Serial.print("Connected to ");
+      Serial.println(ssid);
+      Serial.print("IP address: ");
+      Serial.println(WiFi.localIP());
+      
+      server.on("/", handle_root);
+  
+      server.on("/cliconf", handle_cliconf);
+  
+      server.on("/serconf", handle_serconf);
+
+      //server.on("/landing", landing);
+  
+      if (!mdns.begin(espName.c_str(), WiFi.localIP())) {
+        Serial.println("Error setting up MDNS responder!");
+        while(1) { 
+          delay(1000);
+        }
+      }
+      server.begin();
+      Serial.println("HTTP server started");
+      dht.begin();
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////           MAIN 
+void loop(void)
+{
+  
+//    if (millis() - lastInterval > sendInterval) {
+//      send_data();
+//      lastInterval = millis();
+//    }
+  readTelegram();
+  server.handleClient();
+  
+} 
 
