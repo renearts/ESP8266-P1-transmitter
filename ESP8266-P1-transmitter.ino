@@ -433,6 +433,25 @@ bool decodeTelegram(int len) {
   return validCRCFound;
 }
 
+
+void readTelegramSoftSerial() {
+  if (mySerial.available()) {
+    memset(telegram, 0, sizeof(telegram));
+    while (mySerial.available()) {
+      int len = mySerial.readBytesUntil('\n', telegram, MAXLINELENGTH);
+      telegram[len] = '\n';
+      telegram[len+1] = 0;
+      yield();
+      if(decodeTelegram(len+1))
+      {
+         UpdateElectricity();
+         UpdateGas();
+      }
+    } 
+  }
+}
+
+
 void readTelegram() {
   if (Serial.available()) {
     memset(telegram, 0, sizeof(telegram));
@@ -495,6 +514,7 @@ void loop(void)
 //      lastInterval = millis();
 //    }
   readTelegram();
+  //readTelegramSoftSerial();
   server.handleClient();
   
 } 
