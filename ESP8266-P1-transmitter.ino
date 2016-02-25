@@ -218,7 +218,7 @@ void landing() {
 }
 */
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////         SEND DATA
-bool send_data(String data, String sensorname) {
+bool send_data(float data, String sensorname) {
   
   String yourdata;
     
@@ -241,7 +241,7 @@ bool send_data(String data, String sensorname) {
 //  (Username + String(":") + Password).toCharArray(base64login, 40);
   
   //Send Humidity
-  yourdata = "{\"type\": \"value\", \"valueOrExpression\": \"" + data + "\"}";
+  yourdata = "{\"type\": \"value\", \"valueOrExpression\": \"" + String(data) + "\"}";
     
   client.print("PATCH /api/variables/");
   client.print(sensorname);
@@ -278,8 +278,8 @@ void UpdateGas()
   if(prevGAS!=mGAS)
   {
     char sFloatString[16];
-    dtostrf(mGAS,9,3,sFloatString);
-    if(send_data(sFloatString,"mGAS"))
+//    dtostrf(mGAS,9,3,sFloatString);
+    if(send_data(mGAS,"mGAS"))
       prevGAS=mGAS;
   }
 }
@@ -289,18 +289,18 @@ void UpdateElectricity()
   char sFloatString[16];
 //  sprintf(sValue, "%d;%d;%d;%d;%d;%d", mEVLT, mEVHT, mEOLT, mEOHT, mEAV, mEAT);
 //  SendToDomo(domoticzEneryIdx, 0, sValue);
-  dtostrf(mEVLT,9,3,sFloatString);
-  send_data(sFloatString,"mEVLT");
-  dtostrf(mEVHT,9,3,sFloatString);
-  send_data(sFloatString,"mEVHT");
-  dtostrf(mEOLT,9,3,sFloatString);
-  send_data(sFloatString,"mEOLT");
-  dtostrf(mEOHT,9,3,sFloatString);
-  send_data(sFloatString,"mEOHT");
-  dtostrf(mEAV,9,3,sFloatString);
-  send_data(sFloatString,"mEAV");
-  dtostrf(mEAT,9,3,sFloatString);
-  send_data(sFloatString,"mEAT");
+//  dtostrf(mEVLT,9,3,sFloatString);
+  send_data(mEVLT,"mEVLT");
+//  dtostrf(mEVHT,9,3,sFloatString);
+  send_data(mEVHT,"mEVHT");
+//  dtostrf(mEOLT,9,3,sFloatString);
+  send_data(mEOLT,"mEOLT");
+//  dtostrf(mEOHT,9,3,sFloatString);
+  send_data(mEOHT,"mEOHT");
+//  dtostrf(mEAV,9,3,sFloatString);
+  send_data(mEAV,"mEAV");
+//  dtostrf(mEAT,9,3,sFloatString);
+  send_data(mEAT,"mEAT");
 }
 
 bool isNumber(char* res, int len) {
