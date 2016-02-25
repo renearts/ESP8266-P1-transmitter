@@ -52,14 +52,14 @@ DHT dht(2, DHT22, 20);
 
 
 // Vars to store meter readings
-long mEVLT = 0; //Meter reading Electrics - consumption low tariff
-long mEVHT = 0; //Meter reading Electrics - consumption high tariff
-long mEOLT = 0; //Meter reading Electrics - return low tariff
-long mEOHT = 0; //Meter reading Electrics - return high tariff
-long mEAV = 0;  //Meter reading Electrics - Actual consumption
-long mEAT = 0;  //Meter reading Electrics - Actual return
-long mGAS = 0;    //Meter reading Gas
-long prevGAS = 0;
+float mEVLT = 0; //Meter reading Electrics - consumption low tariff
+float mEVHT = 0; //Meter reading Electrics - consumption high tariff
+float mEOLT = 0; //Meter reading Electrics - return low tariff
+float mEOHT = 0; //Meter reading Electrics - return high tariff
+float mEAV = 0;  //Meter reading Electrics - Actual consumption
+float mEAT = 0;  //Meter reading Electrics - Actual return
+float mGAS = 0;    //Meter reading Gas
+float prevGAS = 0;
 
 
 #define MAXLINELENGTH 64 // longest normal line is 47 char (+3 for \r\n\0)
@@ -240,7 +240,7 @@ bool send_data(String data, String sensorname) {
 //  (Username + String(":") + Password).toCharArray(base64login, 40);
   
   //Send Humidity
-  yourdata = "{\"type\": \"value\", \"valueOrExpression\": \"" + String(data) + "\"}";
+  yourdata = "{\"type\": \"value\", \"valueOrExpression\": \"" + data + "\"}";
     
   client.print("PATCH /api/variables/");
   client.print(sensorname);
@@ -286,15 +286,19 @@ void UpdateElectricity()
 //  char sValue[255];
 //  sprintf(sValue, "%d;%d;%d;%d;%d;%d", mEVLT, mEVHT, mEOLT, mEOHT, mEAV, mEAT);
 //  SendToDomo(domoticzEneryIdx, 0, sValue);
-  
-  send_data(String(mEVLT),"mEVLT");
-  send_data(String(mEVHT),"mEVHT");
-  send_data(String(mEOLT),"mEOLT");
-  send_data(String(mEOHT),"mEOHT");
-  send_data(String(mEAV),"mEAV");
-  send_data(String(mEAT),"mEAT");
+  sprintf(sValue, "%0.3f",mEVLT);
+  send_data(sValue,"mEVLT");
+  sprintf(sValue, "%0.3f",mEVHT);
+  send_data(sValue,"mEVHT");
+  sprintf(sValue, "%0.3f",mEOLT);
+  send_data(sValue,"mEOLT");
+  sprintf(sValue, "%0.3f",mEOHT);
+  send_data(sValue,"mEOHT");
+  sprintf(sValue, "%0.3f",mEAV);
+  send_data(sValue,"mEAV");
+  sprintf(sValue, "%0.3f",mEAT);
+  send_data(sValue,"mEAT");
 }
-
 
 bool isNumber(char* res, int len) {
   for (int i = 0; i < len; i++) {
@@ -322,7 +326,7 @@ long getValidVal(long valNew, long valOld, long maxDiffer)
       return valNew;
 }
 
-long getValue(char* buffer, int maxlen) {
+float getValue(char* buffer, int maxlen) {
   int s = FindCharInArrayRev(buffer, '(', maxlen - 2);
   if (s < 8) return 0;
   if (s > 32) s = 32;
