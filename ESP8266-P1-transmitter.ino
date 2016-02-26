@@ -241,7 +241,7 @@ bool send_data(float data, String sensorname) {
 //  (Username + String(":") + Password).toCharArray(base64login, 40);
   
   //Send Humidity
-  yourdata = "{\"type\": \"value\", \"valueOrExpression\": \"" + String(data) + "\"}";
+  yourdata = "{\"type\": \"value\", \"valueOrExpression\": \"" + String(data, 3) + "\"}";
     
   client.print("PATCH /api/variables/");
   client.print(sensorname);
