@@ -4,16 +4,16 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
-#include <Base64.h>
 #include <EEPROM.h>
 #include <SoftwareSerial.h>
+#include "Base64.h"
 #include "CRC16.h"
  
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////        !!PLEASE CHANGE THESE!!
 String ssid    = "WiFi SSID";
 String password = "WiFi Password";
 
-String espName    = "esp01";
+String espName    = "esp-P1";
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////        NETWORK
 ESP8266WebServer  server(80);
