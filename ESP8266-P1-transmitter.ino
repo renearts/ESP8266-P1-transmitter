@@ -4,15 +4,16 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
-#include <Base64.h>
 #include <EEPROM.h>
+#include <SoftwareSerial.h>
+#include "Base64.h"
 #include "CRC16.h"
  
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////        !!PLEASE CHANGE THESE!!
 String ssid    = "WiFi SSID";
 String password = "WiFi Password";
 
-String espName    = "esp01";
+String espName    = "esp-P1";
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////        NETWORK
 ESP8266WebServer  server(80);
@@ -38,7 +39,7 @@ String Password     = "iamasensor";
 char authVal[40];  
 char authValEncoded[40];
 
-String host   = "192.168.0.100";
+String host   = "192.168.0.115";
 
 String ClientIP;
 // send data
@@ -217,7 +218,7 @@ void landing() {
 }
 */
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////         SEND DATA
-bool send_data(String data, String sensorname) {
+bool send_data(float data, String sensorname) {
   
   String yourdata;
     
@@ -240,7 +241,7 @@ bool send_data(String data, String sensorname) {
 //  (Username + String(":") + Password).toCharArray(base64login, 40);
   
   //Send Humidity
-  yourdata = "{\"type\": \"value\", \"valueOrExpression\": \"" + data + "\"}";
+  yourdata = "{\"type\": \"value\", \"valueOrExpression\": \"" + String(data, 3) + "\"}";
     
   client.print("PATCH /api/variables/");
   client.print(sensorname);
@@ -255,7 +256,7 @@ bool send_data(String data, String sensorname) {
   client.print("\r\n\r\n");
   client.print(yourdata);
     
-  delay(250);  
+  delay(100);  
   while (client.available()) {
     String line = client.readStringUntil('\r');
   }
@@ -276,28 +277,30 @@ void UpdateGas()
   //sends over the gas setting to domoticz
   if(prevGAS!=mGAS)
   {
-    if(send_data(String(mGAS),"mGAS"))
+    char sFloatString[16];
+//    dtostrf(mGAS,9,3,sFloatString);
+    if(send_data(mGAS,"mGAS"))
       prevGAS=mGAS;
   }
 }
 
 void UpdateElectricity()
 {
-//  char sValue[255];
+  char sFloatString[16];
 //  sprintf(sValue, "%d;%d;%d;%d;%d;%d", mEVLT, mEVHT, mEOLT, mEOHT, mEAV, mEAT);
 //  SendToDomo(domoticzEneryIdx, 0, sValue);
-  sprintf(sValue, "%0.3f",mEVLT);
-  send_data(sValue,"mEVLT");
-  sprintf(sValue, "%0.3f",mEVHT);
-  send_data(sValue,"mEVHT");
-  sprintf(sValue, "%0.3f",mEOLT);
-  send_data(sValue,"mEOLT");
-  sprintf(sValue, "%0.3f",mEOHT);
-  send_data(sValue,"mEOHT");
-  sprintf(sValue, "%0.3f",mEAV);
-  send_data(sValue,"mEAV");
-  sprintf(sValue, "%0.3f",mEAT);
-  send_data(sValue,"mEAT");
+//  dtostrf(mEVLT,9,3,sFloatString);
+  send_data(mEVLT,"mEVLT");
+//  dtostrf(mEVHT,9,3,sFloatString);
+  send_data(mEVHT,"mEVHT");
+//  dtostrf(mEOLT,9,3,sFloatString);
+  send_data(mEOLT,"mEOLT");
+//  dtostrf(mEOHT,9,3,sFloatString);
+  send_data(mEOHT,"mEOHT");
+//  dtostrf(mEAV,9,3,sFloatString);
+  send_data(mEAV,"mEAV");
+//  dtostrf(mEAT,9,3,sFloatString);
+  send_data(mEAT,"mEAT");
 }
 
 bool isNumber(char* res, int len) {
@@ -433,23 +436,23 @@ bool decodeTelegram(int len) {
   return validCRCFound;
 }
 
-
-void readTelegramSoftSerial() {
-  if (mySerial.available()) {
-    memset(telegram, 0, sizeof(telegram));
-    while (mySerial.available()) {
-      int len = mySerial.readBytesUntil('\n', telegram, MAXLINELENGTH);
-      telegram[len] = '\n';
-      telegram[len+1] = 0;
-      yield();
-      if(decodeTelegram(len+1))
-      {
-         UpdateElectricity();
-         UpdateGas();
-      }
-    } 
-  }
-}
+//
+//void readTelegramSoftSerial() {
+//  if (mySerial.available()) {
+//    memset(telegram, 0, sizeof(telegram));
+//    while (mySerial.available()) {
+//      int len = mySerial.readBytesUntil('\n', telegram, MAXLINELENGTH);
+//      telegram[len] = '\n';
+//      telegram[len+1] = 0;
+//      yield();
+//      if(decodeTelegram(len+1))
+//      {
+//         UpdateElectricity();
+//         UpdateGas();
+//      }
+//    } 
+//  }
+//}
 
 
 void readTelegram() {
