@@ -3,6 +3,7 @@ This sketch written in the Arduino language makes an ESP8266 send incoming P1 sm
 
 It currently sports an interface which is not of much use, but hey, it looks fancy ;)
 
+To use the SoftSerial input please install the SoftSerial library from: https://github.com/plerup/espsoftwareserial
 
 ### Connection of the P1 meter to the ESP8266
 You need to connect the smart meter with a RJ11 connector. This is the pinout to use
