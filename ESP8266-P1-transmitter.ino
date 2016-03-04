@@ -477,7 +477,7 @@ void readTelegram() {
 void setup(void)
 {
   Serial.begin(115200);
- 
+  mySerial.begin(115200);
    
       WiFi.begin(ssid.c_str(), password.c_str());
       while (WiFi.status() != WL_CONNECTED) {
