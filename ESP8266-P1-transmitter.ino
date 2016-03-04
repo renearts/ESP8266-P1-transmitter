@@ -66,6 +66,7 @@ float prevGAS = 0;
 #define MAXLINELENGTH 128 // longest normal line is 47 char (+3 for \r\n\0)
 char telegram[MAXLINELENGTH];
 
+// Uncomment this block to use SoftSerial
 //#define SERIAL_RX     D5  // pin for SoftwareSerial RX
 //SoftwareSerial mySerial(SERIAL_RX, -1, true, MAXLINELENGTH); // (RX, TX. inverted, buffer)
 
@@ -436,25 +437,27 @@ bool decodeTelegram(int len) {
   return validCRCFound;
 }
 
-//
-//void readTelegramSoftSerial() {
-//  if (mySerial.available()) {
-//    memset(telegram, 0, sizeof(telegram));
-//    while (mySerial.available()) {
-//      int len = mySerial.readBytesUntil('\n', telegram, MAXLINELENGTH);
-//      telegram[len] = '\n';
-//      telegram[len+1] = 0;
-//      yield();
-//      if(decodeTelegram(len+1))
-//      {
-//         UpdateElectricity();
-//         UpdateGas();
-//      }
-//    } 
-//  }
-//}
+// uncomment this block to use SoftSerial
+/* 
+void readTelegramSoftSerial() {
+  if (mySerial.available()) {
+    memset(telegram, 0, sizeof(telegram));
+    while (mySerial.available()) {
+      int len = mySerial.readBytesUntil('\n', telegram, MAXLINELENGTH);
+      telegram[len] = '\n';
+      telegram[len+1] = 0;
+      yield();
+      if(decodeTelegram(len+1))
+      {
+         UpdateElectricity();
+         UpdateGas();
+      }
+    } 
+  }
+}
+*/
 
-
+// Comment or delete this block to disable use of hardware serial
 void readTelegram() {
   if (Serial.available()) {
     memset(telegram, 0, sizeof(telegram));
@@ -477,7 +480,7 @@ void readTelegram() {
 void setup(void)
 {
   Serial.begin(115200);
-  mySerial.begin(115200);
+  //mySerial.begin(115200);  // uncomment this line to use SoftSerial
    
       WiFi.begin(ssid.c_str(), password.c_str());
       while (WiFi.status() != WL_CONNECTED) {
